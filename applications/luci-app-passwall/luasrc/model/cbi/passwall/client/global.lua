@@ -670,13 +670,12 @@ if has_smartdns then
 	o:value("notice", "Notice")
 	o:value("info", "Info")
 	o:value("debug", "Debug")
-	o:depends({dns_shunt = "smartdns", log_smartdns = "1"})
+	o:depends("log_smartdns", "1")
 
 	o = s:taboption("log", Value, "smartdns_log_size", translate("Log Size") .. " (MB)")
 	o.default = "1"
 	o.datatype = "and(uinteger,min(1))"
-	o.rmempty = false
-	o:depends({dns_shunt = "smartdns", log_smartdns = "1"})
+	o:depends("log_smartdns", "1")
 
 	o = s:taboption("log", DummyValue, "_smartdns_log", translate("Log File"))
 	o.rawhtml = true
@@ -694,7 +693,7 @@ if has_smartdns then
 		end
 		return s
 	end
-	o:depends({dns_shunt = "smartdns", log_smartdns = "1"})
+	o:depends("log_smartdns", "1")
 
 	if api.fs.access("/usr/lib/smartdns_ui.so") or api.fs.access("/usr/lib/smartdns/smartdns_ui.so") then
 		o = s:taboption("log", Flag, "smartdns_ui", "SmartDNS " .. translate("Enable WebUI"))
@@ -705,12 +704,10 @@ if has_smartdns then
 		o = s:taboption("log", Value, "smartdns_ui_port", translate("WebUI Port"))
 		o.default = "9880"
 		o.datatype = "range(1,65535)"
-		o.rmempty = false
-		o:depends({dns_shunt = "smartdns", smartdns_ui = "1"})
+		o:depends("smartdns_ui", "1")
 
 		o = s:taboption("log", Value, "smartdns_ui_data_dir", translate("WebUI Database Directory"))
 		o.default = api.CACHE_PATH .. "/smartdns"
-		o.rmempty = false
 		o.validate = function(self, value, section)
 			value = api.trim(value)
 			if value:sub(1, 1) ~= "/" or value:find("%s") then
@@ -718,25 +715,24 @@ if has_smartdns then
 			end
 			return value
 		end
-		o:depends({dns_shunt = "smartdns", smartdns_ui = "1"})
+		o:depends("smartdns_ui", "1")
 
 		o = s:taboption("log", Value, "smartdns_ui_log_max_age", translate("WebUI Log Retention Days"))
 		o.default = "7"
 		o.datatype = "and(uinteger,min(1))"
-		o.rmempty = false
-		o:depends({dns_shunt = "smartdns", smartdns_ui = "1"})
+		o:depends("smartdns_ui", "1")
 
 		o = s:taboption("log", DummyValue, "_smartdns_ui_link", "WebUI")
 		o.rawhtml = true
 		o.cfgvalue = function(self, section)
-			local port = tonumber(m:get(section, "smartdns_ui_port")) or 9880
+			local port = tonumber((m:get(section, "smartdns_ui_port"))) or 9880
 			if port < 1 or port > 65535 or port % 1 ~= 0 then port = 9880 end
 			return string.format(
 				[[<input class="btn cbi-button cbi-button-apply" type="button" value="%s" onclick="var host = window.location.hostname; if (host.indexOf(':') !== -1 &amp;&amp; host.charAt(0) !== '[') host = '[' + host + ']'; window.open('http://' + host + ':%d', '_blank', 'noopener,noreferrer');" />]],
 				translate("Open WebUI"), port
 			)
 		end
-		o:depends({dns_shunt = "smartdns", smartdns_ui = "1"})
+		o:depends("smartdns_ui", "1")
 	end
 end
 

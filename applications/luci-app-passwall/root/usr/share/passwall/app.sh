@@ -640,8 +640,8 @@ start_global() {
 		}
 
 		[ "$protocol" = "_shunt" ] && {
-			local geoip_path="${V2RAY_LOCATION_ASSET%*/}/geoip.dat"
-			local geosite_path="${V2RAY_LOCATION_ASSET%*/}/geosite.dat"
+			local geoip_path="${GEO_DIR%/}/geoip.dat"
+			local geosite_path="${GEO_DIR%/}/geosite.dat"
 			if [ ! -s "$geoip_path" ] || [ ! -s "$geosite_path" ]; then
 				echolog "* 缺少Geo规则文件，TCP Sing-Box分流节点无法正常使用！"
 			fi
@@ -724,8 +724,8 @@ start_global() {
 		}
 
 		[ "$protocol" = "_shunt" ] && {
-			local geoip_path="${V2RAY_LOCATION_ASSET%*/}/geoip.dat"
-			local geosite_path="${V2RAY_LOCATION_ASSET%*/}/geosite.dat"
+			local geoip_path="${GEO_DIR%/}/geoip.dat"
+			local geosite_path="${GEO_DIR%/}/geosite.dat"
 			if [ ! -s "$geoip_path" ] || [ ! -s "$geosite_path" ]; then
 				echolog "* 缺少Geo规则文件，TCP Xray分流节点无法正常使用！"
 			fi
@@ -1704,14 +1704,20 @@ acl_app() {
 start() {
 	busybox pgrep -f ${TMP_PATH}/bin > /dev/null 2>&1 && {
 		logger -t PSW-RESTART "Upgrade or overload residue is detected, and the subprocess is being called to perform complete cleaning..."
-		(stop)
+		(stop "$1")
 		sleep 2
 	}
 	mkdir -p /tmp/etc /tmp/log $TMP_PATH $TMP_BIN_PATH $TMP_SCRIPT_FUNC_PATH $TMP_ROUTE_PATH $TMP_ACL_PATH $TMP_PATH2
 	set_cache_var "LOCAL_DNS" "$LOCAL_DNS"
 	get_config
-	export V2RAY_LOCATION_ASSET=$(config_n_get @global_rules[0] v2ray_location_asset "/usr/share/v2ray/")
-	export XRAY_LOCATION_ASSET=$V2RAY_LOCATION_ASSET
+	GEO_DIR=$(config_n_get @global_rules[0] v2ray_location_asset "/usr/share/v2ray/")
+	export XRAY_LOCATION_ASSET="$TMP_PATH2/geodata"
+	mkdir -p "$XRAY_LOCATION_ASSET" 2>/dev/null
+	local geo_file
+	for geo_file in "${GEO_DIR%/}"/*.dat; do
+		[ -f "$geo_file" ] || continue
+		ln -sf "$geo_file" "$XRAY_LOCATION_ASSET/${geo_file##*/}" 2>/dev/null
+	done
 	export ENABLE_DEPRECATED_GEOSITE=true
 	export ENABLE_DEPRECATED_GEOIP=true
 	export SS_SYSTEM_DNS_RESOLVER_FORCE_BUILTIN=1
@@ -1756,7 +1762,7 @@ start() {
 		}
 	fi
 
-	start_crontab $1
+	start_crontab "$1"
 	echolog "运行完成！\n"
 
 	[ "$ENABLED" = 1 ] && [ "$1" = "boot" ] && {
@@ -1771,6 +1777,7 @@ start() {
 			lua $APP_PATH/subscribe.lua start $cfgids cron > /dev/null 2>&1 &
 		}
 	}
+	return 0
 }
 
 stop() {
@@ -1790,10 +1797,9 @@ stop() {
 	busybox pgrep -af "${CONFIG}/monitor\.sh" | xargs -r kill -9 >/dev/null 2>&1
 	busybox pgrep -f "sleep.*(6s|9s|58s)" | xargs -r kill -9 >/dev/null 2>&1
 	busybox pgrep -af "${CONFIG}/" | awk '! /app\.sh|subscribe\.lua|rule_update\.lua|tasks\.sh|server_app\.lua|ujail/{print $1}' | xargs -r kill -9 >/dev/null 2>&1
-	unset V2RAY_LOCATION_ASSET
 	unset XRAY_LOCATION_ASSET
 	unset SS_SYSTEM_DNS_RESOLVER_FORCE_BUILTIN
-	stop_crontab $1
+	stop_crontab "$1"
 	rm -rf $GLOBAL_DNSMASQ_CONF
 	rm -rf $GLOBAL_DNSMASQ_CONF_PATH
 	[ "1" = "1" ] && {
@@ -1814,9 +1820,6 @@ stop() {
 		[ -n "${bak_bridge_nf_ip6t}" ] && sysctl -w net.bridge.bridge-nf-call-ip6tables=${bak_bridge_nf_ip6t} >/dev/null 2>&1
 	}
 	rm -rf $TMP_PATH
-	rm -f ${LOCK_PATH}/${CONFIG}_socks_auto_switch*
-	rm -f ${LOCK_PATH}/${CONFIG}_lease2hosts*
-	rm -f ${LOCK_PATH}/${CONFIG}_monitor*
 	echolog "清空并关闭相关程序和缓存完成。"
 	exit 0
 }
